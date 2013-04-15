@@ -109,6 +109,24 @@ describe RestClient::Request do
     @request.make_headers({}).should == { 'Foo' => 'bar', 'Cookie' => 'session_id=1; user_id=someone'}
   end
 
+  it "uses netrc credentials" do
+    URI.stub!(:parse).and_return(mock('uri', :user => nil, :password => nil, :host => 'example.com'))
+    File.stub!(:stat).and_return(mock('stat', :mode => 0600))
+    IO.stub!(:readlines).and_return(["machine example.com login a password b"])
+    @request.parse_url_with_auth('http://example.com/resource')
+    @request.user.should == 'a'
+    @request.password.should == 'b'
+  end
+
+  it "uses credentials in the url in preference to netrc" do
+    URI.stub!(:parse).and_return(mock('uri', :user => 'joe%20', :password => 'pass1', :host => 'example.com'))
+    File.stub!(:stat).and_return(mock('stat', :mode => 0600))
+    IO.stub!(:readlines).and_return(["machine example.com login a password b"])
+    @request.parse_url_with_auth('http://joe%20:pass1@example.com/resource')
+    @request.user.should == 'joe '
+    @request.password.should == 'pass1'
+  end
+
   it "determines the Net::HTTP class to instantiate by the method name" do
     @request.net_http_request_class(:put).should == Net::HTTP::Put
   end
@@ -126,6 +144,13 @@ describe RestClient::Request do
     it "prefers the user header when the same header exists in the defaults" do
       @request.should_receive(:default_headers).and_return({ '1' => '2' })
       headers = @request.make_headers('1' => '3')
+      headers.should have_key('1')
+      headers['1'].should == '3'
+    end
+
+    it "converts user headers to string before calling CGI::unescape which fails on non string values" do
+      @request.should_receive(:default_headers).and_return({ '1' => '2' })
+      headers = @request.make_headers('1' => 3)
       headers.should have_key('1')
       headers['1'].should == '3'
     end
