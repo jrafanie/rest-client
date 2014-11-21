@@ -173,7 +173,7 @@ module RestClient
 
     def execute & block
       uri = parse_url_with_auth(url)
-      transmit uri, net_http_request_class(method).new(uri.request_uri, processed_headers), payload, & block
+      transmit uri, net_http_request_class(method).new(uri, processed_headers), payload, & block
     ensure
       payload.close if payload
     end
